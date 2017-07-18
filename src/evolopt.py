@@ -1,4 +1,5 @@
 
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -38,7 +39,8 @@ class Population:
             for i in range(len(individual.xy)):
                 individual.xy[i] = np.random.uniform(minXY[i], maxXY[i], 1)
 
-
+    def add(self, individual):
+        self.individuals.append(individual)
 
 class Fitness:
 
@@ -59,6 +61,14 @@ class Fitness:
         #               (   (  2 vx^2    2 vy^2   ) )
         return self.amplitude * np.exp(- np.sum((xy - self.means) ** 2 /
                                                 (2 * self.variances)))
+
+
+class RastriginFitness(Fitness):
+
+    def function(self, xy):
+        n = 2
+        return np.abs(- self.amplitude * n \
+               + np.sum(xy**2 - self.amplitude * np.cos(2 * np.pi * xy)))
 
 
 
@@ -99,7 +109,7 @@ class Plot:
 
 
 
-fitness = Fitness()
+fitness = RastriginFitness()
 
 population = Population(size=10)
 population.randomize()
@@ -107,7 +117,55 @@ population.randomize()
 plot = Plot()
 plot.plot(fitness, population)
 
+def optimize(population, fitness):
 
+    def mutate(parent):
+        child = Individual()
+        for i in range(len(child.xy)):
+            child.xy[i] = parent.xy[i] \
+                          + np.random.uniform(0.25 * minXY[i], 0.25 * maxXY[i], 1)
+        return child
+
+    def recombine(parent1, parent2):
+        child = Individual()
+        for i in range(len(child.xy)):
+            factor = np.random.uniform(0., 1., 1)
+            child.xy[i] = factor * parent1.xy[i] + (1 - factor) * parent2.xy[i]
+        return child
+
+    numGenerations = 15
+    populationSize = len(population.individuals)
+
+    for generation in range(numGenerations):
+
+        newPopulation = Population(0)
+
+        # 100% mutation + 100% recombination
+
+        for i in range(populationSize):
+            parent = random.choice(population.individuals)
+            child = mutate(parent)
+            newPopulation.add(child)
+
+        for i in range(populationSize):
+            parent1 = random.choice(population.individuals)
+            parent2 = random.choice(population.individuals)
+            child = recombine(parent1, parent2)
+            newPopulation.add(child)
+
+        # sort (ascending)
+        newPopulation.individuals.sort(key=lambda indiv: fitness.evaluate(indiv))
+
+        # keep better half
+        newPopulation.individuals = newPopulation.individuals[-populationSize:]
+
+        # generation swap
+        population = newPopulation
+
+        plot.plot(fitness, population)
+
+
+optimize(population, fitness)
 
 
 
