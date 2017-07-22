@@ -2,10 +2,11 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
-minX, maxX = -1., 1.
-minY, maxY = -1., 1.
+minX, maxX = -5., 5.
+minY, maxY = -5., 5.
 
 xLim = np.array([minX, maxX])
 yLim = np.array([minY, maxY])
@@ -43,17 +44,24 @@ class Population:
         self.individuals.append(individual)
 
 class Fitness:
-
-    def __init__(self):
-        self.amplitude = 1
-        self.means = np.array([0.5, 0.5])
-        self.variances = np.array([0.1, 0.1])
+    def __init__(self, amplitude=1):
+        self.amplitude = amplitude
 
     def evaluate(self, individual):
         return self.function(individual.xy)
 
     def evaluatePopulation(self, population):
         return np.array([self.evaluate(individual) for individual in population])
+
+    def funcion(self, xy):
+        return 0;
+
+
+class SimpleFitness(Fitness):
+    def __init__(self):
+        super(SimpleFitness, self).__init__(1)
+        self.means = np.array([0.5, 0.5])
+        self.variances = np.array([0.1, 0.1])
 
     def function(self, xy):
         #               (   ( (x-x0)^2   (y-y0)^2 ) )
@@ -65,57 +73,82 @@ class Fitness:
 
 class RastriginFitness(Fitness):
 
+    def __init__(self):
+        super(RastriginFitness, self).__init__(10)
+
     def function(self, xy):
         n = 2
-        return np.abs(- self.amplitude * n \
+        return - np.abs(- self.amplitude * n \
                + np.sum(xy**2 - self.amplitude * np.cos(2 * np.pi * xy)))
+
+class AckleyFitness(Fitness):
+
+    def function(self, xy):
+
+        return (20 * np.exp(-0.2 * np.sqrt(0.5 * np.sum(xy**2)))
+                - np.exp(0.5 * np.sum(np.cos(2*np.pi*xy)))
+                + np.exp(1) + 20
+                )
+
+
 
 
 
 class Plot:
 
     def __init__(self):
-        pass
+        self.fig = plt.figure()
+        self.ax = self.fig.gca(projection='3d')
 
-    def plot(self, fitness=None, population=None):
-
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-
-        if not fitness is None:
-            X = np.linspace(minX, maxX, 32, endpoint=True)
-            Y = np.linspace(minY, maxY, 32, endpoint=True)
-            X, Y = np.meshgrid(X, Y)
-
-            XY = np.dstack((X, Y))
-            Z = np.apply_along_axis(fitness.function, 2, XY)
-
-            # Plot the surface.
-            ax.plot_wireframe(X, Y, Z, color='g')
-
-        if not population is None:
-            X = np.array([ind.x() for ind in population.individuals])
-            Y = np.array([ind.y() for ind in population.individuals])
-            Z = np.apply_along_axis(fitness.function, 2, np.dstack((X,Y)))
-            ax.scatter(X, Y, Z, c='b', s=100)
-
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Fitness')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Fitness')
 
         plt.xlim(xLim)
         plt.ylim(yLim)
+
+    def plotFitness(self, fitness=None):
+
+        if fitness is None:
+            return
+
+        X = np.linspace(minX, maxX, 65, endpoint=True)
+        Y = np.linspace(minY, maxY, 65, endpoint=True)
+        X, Y = np.meshgrid(X, Y)
+
+        XY = np.dstack((X, Y))
+        Z = np.apply_along_axis(fitness.function, 2, XY)
+
+        # Plot the surface.
+        #ax.plot_wireframe(X, Y, Z, color='g', linewidth=1, antialiased=False)
+
+        self.ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
+                        rstride=1, cstride=1,
+                        linewidth=0, antialiased=False)
+
+
+    def plotPopulation(self, population=None):
+
+        if population is None:
+            return
+
+        X = np.array([ind.x() for ind in population.individuals])
+        Y = np.array([ind.y() for ind in population.individuals])
+        Z = np.apply_along_axis(fitness.function, 2, np.dstack((X,Y)))
+        self.ax.scatter(X, Y, Z, c='g', s=100)
+
+    def show(self):
         plt.show()
 
 
 
-fitness = RastriginFitness()
+#fitness = RastriginFitness()
+fitness = AckleyFitness()
 
 population = Population(size=10)
 population.randomize()
 
 plot = Plot()
-plot.plot(fitness, population)
 
 def optimize(population, fitness):
 
@@ -133,8 +166,13 @@ def optimize(population, fitness):
             child.xy[i] = factor * parent1.xy[i] + (1 - factor) * parent2.xy[i]
         return child
 
-    numGenerations = 15
+    numGenerations = 10
     populationSize = len(population.individuals)
+
+    myPlot = Plot()
+    myPlot.plotFitness(fitness)
+    myPlot.plotPopulation(population)
+    myPlot.show()
 
     for generation in range(numGenerations):
 
@@ -162,7 +200,7 @@ def optimize(population, fitness):
         # generation swap
         population = newPopulation
 
-        plot.plot(fitness, population)
+        myPlot.plotPopulation(population)
 
 
 optimize(population, fitness)
